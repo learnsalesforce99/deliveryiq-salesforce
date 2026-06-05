@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>All_Appointments</fullName>
+    <label>All Appointments</label>
+    <filterScope>Everything</filterScope>
+    <columns>NAME</columns>
+    <columns>Patient_Name__c</columns>
+    <columns>Provider_Name__c</columns>
+    <columns>Appointment_Date_Time__c</columns>
+    <columns>Appointment_Status__c</columns>
+    <columns>Appointment_Type__c</columns>
+    <columns>Duration_Minutes__c</columns>
+</ListView>

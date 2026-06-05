@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Patient Appointment</label>
+    <pluralLabel>Patient Appointments</pluralLabel>
+    <nameField>
+        <label>Appointment Number</label>
+        <trackHistory>false</trackHistory>
+        <type>AutoNumber</type>
+        <displayFormat>APPT-{0000}</displayFormat>
+        <startingNumber>1</startingNumber>
+    </nameField>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <sharingModel>ReadWrite</sharingModel>
+    <enableActivities>true</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>true</enableHistory>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <description>Tracks patient appointments for healthcare administrators, including scheduling, provider assignment, and clinical notes.</description>
+</CustomObject>
