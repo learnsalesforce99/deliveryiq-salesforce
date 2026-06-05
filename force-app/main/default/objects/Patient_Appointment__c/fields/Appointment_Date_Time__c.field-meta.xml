@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Appointment_Date_Time__c</fullName>
+    <label>Appointment Date &amp; Time</label>
+    <type>DateTime</type>
+    <required>true</required>
+    <trackHistory>true</trackHistory>
+    <description>The scheduled date and time of the patient appointment.</description>
+    <helpText>Enter the date and time the appointment is scheduled to begin.</helpText>
+</CustomField>
