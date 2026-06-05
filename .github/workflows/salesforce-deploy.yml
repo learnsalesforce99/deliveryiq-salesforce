@@ -54,7 +54,7 @@ jobs:
           rm ./auth-url.txt
 
       - name: Validate Deployment (Check Only)
-        if: ${{ github.event.inputs.check_only == 'true' || github.event_name == 'push' }}
+        if: ${{ github.event.inputs.check_only == 'true' }}
         run: |
           sf project deploy start \
             --source-dir force-app/main/default \
@@ -74,7 +74,7 @@ jobs:
           echo "✅ Validation passed"
 
       - name: Deploy to Salesforce
-        if: ${{ github.event.inputs.check_only != 'true' && github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.check_only != 'true') }}
         run: |
           sf project deploy start \
             --source-dir force-app/main/default \
