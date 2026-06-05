@@ -1,0 +1,117 @@
+name: Salesforce Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_org:
+        description: 'Target org alias (e.g., healthdev)'
+        required: true
+        default: 'healthdev'
+      test_level:
+        description: 'Test level'
+        required: true
+        default: 'RunLocalTests'
+        type: choice
+        options:
+          - NoTestRun
+          - RunLocalTests
+          - RunAllTestsInOrg
+      check_only:
+        description: 'Validate only (no actual deploy)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  push:
+    branches:
+      - main
+    paths:
+      - 'force-app/**'
+
+jobs:
+  validate:
+    name: Validate & Deploy to Salesforce
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Salesforce CLI
+        run: npm install -g @salesforce/cli
+
+      - name: Authenticate to Salesforce
+        run: |
+          echo "${{ secrets.SF_AUTH_URL }}" > ./auth-url.txt
+          sf org login sfdx-url --sfdx-url-file ./auth-url.txt --alias target-org --set-default
+          rm ./auth-url.txt
+
+      - name: Validate Deployment (Check Only)
+        if: ${{ github.event.inputs.check_only == 'true' || github.event_name == 'push' }}
+        run: |
+          sf project deploy start \
+            --source-dir force-app/main/default \
+            --target-org target-org \
+            --test-level ${{ github.event.inputs.test_level || 'RunLocalTests' }} \
+            --dry-run \
+            --wait 30 \
+            --json | tee deploy-result.json
+          
+          # Check if validation passed
+          STATUS=$(cat deploy-result.json | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).result?.status||'unknown')")
+          echo "Validation Status: $STATUS"
+          if [ "$STATUS" != "Succeeded" ]; then
+            echo "❌ Validation failed"
+            exit 1
+          fi
+          echo "✅ Validation passed"
+
+      - name: Deploy to Salesforce
+        if: ${{ github.event.inputs.check_only != 'true' && github.event_name == 'workflow_dispatch' }}
+        run: |
+          sf project deploy start \
+            --source-dir force-app/main/default \
+            --target-org target-org \
+            --test-level ${{ github.event.inputs.test_level || 'RunLocalTests' }} \
+            --wait 30 \
+            --json | tee deploy-result.json
+          
+          STATUS=$(cat deploy-result.json | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).result?.status||'unknown')")
+          echo "Deploy Status: $STATUS"
+          if [ "$STATUS" != "Succeeded" ]; then
+            echo "❌ Deployment failed"
+            cat deploy-result.json
+            exit 1
+          fi
+          echo "✅ Deployment succeeded"
+
+      - name: Upload Deploy Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-results
+          path: deploy-result.json
+          retention-days: 30
+
+      - name: Post Deploy Summary
+        if: always()
+        run: |
+          if [ -f deploy-result.json ]; then
+            node -e "
+              const r = JSON.parse(require('fs').readFileSync('deploy-result.json','utf8'));
+              const res = r.result || {};
+              console.log('=== DEPLOY SUMMARY ===');
+              console.log('Status:', res.status);
+              console.log('Components Deployed:', res.numberComponentsDeployed || 0);
+              console.log('Component Errors:', res.numberComponentErrors || 0);
+              console.log('Tests Run:', res.numberTestsCompleted || 0);
+              console.log('Test Errors:', res.numberTestErrors || 0);
+            "
+          fi
