@@ -10,9 +10,9 @@
     </nameField>
     <deploymentStatus>Deployed</deploymentStatus>
     <sharingModel>ReadWrite</sharingModel>
-    <allowReports>true</allowReports>
-    <allowActivities>true</allowActivities>
+    <enableReports>true</enableReports>
     <enableHistory>false</enableHistory>
     <enableFeeds>false</enableFeeds>
+    <allowActivities>true</allowActivities>
     <searchLayouts/>
 </CustomObject>
