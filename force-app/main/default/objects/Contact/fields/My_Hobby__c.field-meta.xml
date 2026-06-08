@@ -7,5 +7,4 @@
     <trackFeedHistory>false</trackFeedHistory>
     <trackHistory>false</trackHistory>
     <description>Indicates whether this contact has a hobby recorded. Check this box to flag the contact as having a hobby of interest.</description>
-    <helpText>Check this box if the contact has a hobby associated with their profile.</helpText>
 </CustomField>
