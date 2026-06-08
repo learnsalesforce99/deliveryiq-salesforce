@@ -87,11 +87,19 @@ When given a Jira issue key (e.g., SCRUM-5), execute this exact sequence:
 16. `jira_update_status` — Move story to "In Review"
 17. `jira_add_comment` — Post: "🤖 Deploy Agent: PR #{number} created. Awaiting review."
 
-### Phase 5: Deployment (after PR approval)
-18. `sf_run_tests` — Run test classes, confirm coverage ≥ 75%
-19. `sf_deploy` — Deploy to Salesforce org with RunLocalTests
-20. `jira_update_status` — Move story to "Done"
-21. `jira_add_comment` — Post deployment summary with deploy ID, components deployed, test results
+### Phase 5: Deployment (after PR is merged to main)
+**IMPORTANT: Do NOT use `sf_deploy` or `sf_run_tests` in this phase. Deployment is handled automatically by GitHub Actions.**
+
+When the PR is merged to `main`, GitHub Actions automatically:
+- Detects which files changed in the merge
+- Deploys ONLY those changed files to the Salesforce org
+- Runs tests and logs the deploy result
+
+Claude's role in Phase 5 is only to:
+18. `jira_update_status` — Move story to "Done"
+19. `jira_add_comment` — Post: "🤖 Deploy Agent: PR merged. GitHub Actions is deploying the changed files to Salesforce automatically. Story marked Done."
+
+**Do NOT call `sf_deploy`, `sf_run_tests`, or `sf_validate_deployment` in Phase 5.**
 
 ---
 
