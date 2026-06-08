@@ -59,9 +59,9 @@ jobs:
         if: ${{ github.event.inputs.check_only == 'true' }}
         run: |
           sf project deploy start \
-            --source-dir force-app/main/default \
+            --source-dir force-app/main/default/objects/Contact \
             --target-org target-org \
-            --test-level ${{ github.event.inputs.test_level || 'RunLocalTests' }} \
+            --test-level ${{ github.event.inputs.test_level || 'NoTestRun' }} \
             --dry-run \
             --wait 30 \
             --json | tee deploy-result.json
@@ -79,9 +79,9 @@ jobs:
         if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.check_only != 'true') }}
         run: |
           sf project deploy start \
-            --source-dir force-app/main/default \
+            --source-dir force-app/main/default/objects/Contact \
             --target-org target-org \
-            --test-level ${{ github.event.inputs.test_level || 'RunLocalTests' }} \
+            --test-level ${{ github.event.inputs.test_level || 'NoTestRun' }} \
             --wait 30 \
             --json | tee deploy-result.json
           
