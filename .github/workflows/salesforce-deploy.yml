@@ -33,13 +33,15 @@ on:
       - 'manifest/**'
 
 jobs:
-  validate:
-    name: Validate & Deploy to Salesforce
+  deploy:
+    name: Deploy Changed Files to Salesforce
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout code
+      - name: Checkout code (with full history for diff)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -55,61 +57,130 @@ jobs:
           sf org login sfdx-url --sfdx-url-file ./auth-url.txt --alias target-org --set-default
           rm ./auth-url.txt
 
-      - name: Validate Deployment (Check Only)
-        if: ${{ github.event.inputs.check_only == 'true' }}
+      - name: Detect changed Salesforce files
+        id: changed_files
         run: |
-          sf project deploy start \
-            --source-dir force-app/main/default/objects/Contact \
-            --target-org target-org \
-            --test-level ${{ github.event.inputs.test_level || 'NoTestRun' }} \
-            --dry-run \
-            --wait 30 \
-            --json | tee deploy-result.json
-          
-          # Check if validation passed
-          STATUS=$(cat deploy-result.json | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).result?.status||'unknown')")
-          echo "Validation Status: $STATUS"
-          if [ "$STATUS" != "Succeeded" ]; then
-            echo "❌ Validation failed"
-            exit 1
-          fi
-          echo "✅ Validation passed"
+          # Get files changed in this push/merge vs previous commit
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | tr '\n' ' ')
+          echo "Changed files: $CHANGED"
 
-      - name: Deploy to Salesforce
-        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.check_only != 'true') }}
+          if [ -z "$CHANGED" ]; then
+            echo "No Salesforce files changed. Skipping deploy."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
+
+            # Build unique list of top-level component directories to deploy
+            # e.g. force-app/main/default/objects/Customer__c/fields/My_Hobby__c.field-meta.xml
+            #   -> force-app/main/default/objects/Customer__c
+            DIRS=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' \
+              | xargs -I{} dirname {} \
+              | sort -u \
+              | tr '\n' ',')
+            # Remove trailing comma
+            DIRS="${DIRS%,}"
+            echo "Deploy dirs: $DIRS"
+            echo "deploy_dirs=$DIRS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate Deployment (Check Only)
+        if: |
+          steps.changed_files.outputs.has_changes == 'true' &&
+          (github.event.inputs.check_only == 'true')
         run: |
-          sf project deploy start \
-            --source-dir force-app/main/default/objects/Contact \
-            --target-org target-org \
-            --test-level ${{ github.event.inputs.test_level || 'NoTestRun' }} \
-            --wait 30 \
-            --json | tee deploy-result.json
-          
-          STATUS=$(cat deploy-result.json | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).result?.status||'unknown')")
-          echo "Deploy Status: $STATUS"
-          if [ "$STATUS" != "Succeeded" ]; then
-            echo "❌ Deployment failed"
-            cat deploy-result.json
+          echo "🔍 Running check-only validation for changed files..."
+          IFS=',' read -ra DIRS <<< "${{ steps.changed_files.outputs.deploy_dirs }}"
+          for DIR in "${DIRS[@]}"; do
+            DIR=$(echo "$DIR" | xargs)  # trim whitespace
+            echo "Validating: $DIR"
+            sf project deploy start \
+              --source-dir "$DIR" \
+              --target-org target-org \
+              --test-level ${{ github.event.inputs.test_level || 'NoTestRun' }} \
+              --dry-run \
+              --wait 30 \
+              --json | tee deploy-result-validate.json
+
+            STATUS=$(cat deploy-result-validate.json | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).result?.status||'unknown')")
+            echo "Validation Status for $DIR: $STATUS"
+            if [ "$STATUS" != "Succeeded" ]; then
+              echo "❌ Validation failed for $DIR"
+              exit 1
+            fi
+            echo "✅ Validation passed for $DIR"
+          done
+
+      - name: Deploy Changed Files to Salesforce
+        if: |
+          steps.changed_files.outputs.has_changes == 'true' &&
+          (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.check_only != 'true'))
+        run: |
+          echo "🚀 Deploying only changed files to Salesforce..."
+          echo "Changed files: ${{ steps.changed_files.outputs.changed_files }}"
+
+          IFS=',' read -ra DIRS <<< "${{ steps.changed_files.outputs.deploy_dirs }}"
+          OVERALL_STATUS="Succeeded"
+
+          for DIR in "${DIRS[@]}"; do
+            DIR=$(echo "$DIR" | xargs)  # trim whitespace
+            if [ -d "$DIR" ]; then
+              echo "Deploying: $DIR"
+              sf project deploy start \
+                --source-dir "$DIR" \
+                --target-org target-org \
+                --test-level ${{ github.event.inputs.test_level || 'NoTestRun' }} \
+                --wait 30 \
+                --json | tee deploy-result.json
+
+              STATUS=$(cat deploy-result.json | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).result?.status||'unknown')")
+              echo "Deploy Status for $DIR: $STATUS"
+
+              if [ "$STATUS" != "Succeeded" ]; then
+                echo "❌ Deployment failed for $DIR"
+                cat deploy-result.json
+                OVERALL_STATUS="Failed"
+              else
+                echo "✅ Deployed successfully: $DIR"
+              fi
+            else
+              echo "⚠️ Directory not found (may have been deleted): $DIR"
+            fi
+          done
+
+          if [ "$OVERALL_STATUS" != "Succeeded" ]; then
             exit 1
           fi
-          echo "✅ Deployment succeeded"
+
+      - name: No changes to deploy
+        if: steps.changed_files.outputs.has_changes == 'false'
+        run: |
+          echo "ℹ️ No Salesforce metadata files changed in this push. Nothing to deploy."
 
       - name: Upload Deploy Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: deploy-results
-          path: deploy-result.json
+          path: |
+            deploy-result.json
+            deploy-result-validate.json
           retention-days: 30
+        continue-on-error: true
 
       - name: Post Deploy Summary
         if: always()
         run: |
+          echo "=== DEPLOY SUMMARY ==="
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Changed files: ${{ steps.changed_files.outputs.changed_files }}"
+
           if [ -f deploy-result.json ]; then
             node -e "
               const r = JSON.parse(require('fs').readFileSync('deploy-result.json','utf8'));
               const res = r.result || {};
-              console.log('=== DEPLOY SUMMARY ===');
               console.log('Status:', res.status);
               console.log('Components Deployed:', res.numberComponentsDeployed || 0);
               console.log('Component Errors:', res.numberComponentErrors || 0);

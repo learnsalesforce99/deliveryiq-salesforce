@@ -3,10 +3,10 @@
     <fullName>Appointment_Status__c</fullName>
     <label>Appointment Status</label>
     <type>Picklist</type>
+    <helpText>Select the current status of this appointment.</helpText>
     <required>true</required>
     <trackHistory>true</trackHistory>
     <description>Current status of the patient appointment.</description>
-    <helpText>Select the current status of this appointment.</helpText>
     <valueSet>
         <restricted>true</restricted>
         <valueSetDefinition>
