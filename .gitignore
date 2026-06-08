@@ -24,6 +24,13 @@ yarn-error.log*
 # Dependency directories
 node_modules/
 
+# Compiled output
+dist/
+
+# Non-metadata files accidentally placed in force-app
+force-app/**/*.md
+force-app/**/*.txt
+
 # ApexPMD cache
 .pmdCache
 
