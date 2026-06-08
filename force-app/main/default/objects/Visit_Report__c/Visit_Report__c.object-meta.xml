@@ -13,6 +13,6 @@
     <enableReports>true</enableReports>
     <enableHistory>false</enableHistory>
     <enableFeeds>false</enableFeeds>
-    <allowActivities>true</allowActivities>
+    <enableActivities>true</enableActivities>
     <searchLayouts/>
 </CustomObject>
