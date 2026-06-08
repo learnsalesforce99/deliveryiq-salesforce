@@ -29,6 +29,8 @@ on:
       - main
     paths:
       - 'force-app/**'
+      - 'sfdx-project.json'
+      - 'manifest/**'
 
 jobs:
   validate:
