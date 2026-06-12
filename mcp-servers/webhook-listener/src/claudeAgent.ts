@@ -1,13 +1,18 @@
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'fs';
-import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * Reads the Build Agent system prompt from the markdown file.
  */
 function loadSystemPrompt(): string {
   try {
-    const promptPath = path.resolve(process.cwd(), '..', 'build-agent-prompt.md');
+    // dist/claudeAgent.js → ../../build-agent-prompt.md
+    const promptPath = resolve(__dirname, '..', '..', 'build-agent-prompt.md');
     return fs.readFileSync(promptPath, 'utf-8');
   } catch {
     // Fallback inline prompt if file not found

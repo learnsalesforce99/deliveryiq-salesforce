@@ -1,11 +1,16 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import { JiraWebhookPayload } from './types.js';
 import { validateStory, formatValidationFailureComment } from './storyValidator.js';
 import { triggerBuildAgent } from './claudeAgent.js';
 import { postJiraComment } from './jiraClient.js';
 
-dotenv.config();
+// Load .env from the webhook-listener directory regardless of where node is invoked from
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: resolve(__dirname, '..', '.env') });
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
