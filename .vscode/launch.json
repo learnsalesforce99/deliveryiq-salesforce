@@ -11,6 +11,29 @@
       "logFile": "${command:AskForLogFileName}",
       "stopOnEntry": true,
       "trace": true
+    },
+    {
+      "name": "🚀 Start Webhook Listener",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/mcp-servers/webhook-listener/dist/server.js",
+      "cwd": "${workspaceFolder}/mcp-servers/webhook-listener",
+      "envFile": "${workspaceFolder}/mcp-servers/webhook-listener/.env",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "restart": true
+    },
+    {
+      "name": "🚀 Start Webhook Listener + Tunnel",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/mcp-servers/webhook-listener/dist/server.js",
+      "cwd": "${workspaceFolder}/mcp-servers/webhook-listener",
+      "envFile": "${workspaceFolder}/mcp-servers/webhook-listener/.env",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "restart": true,
+      "preLaunchTask": "Start LocalTunnel"
     }
   ]
 }

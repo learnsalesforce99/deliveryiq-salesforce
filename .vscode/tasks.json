@@ -1,0 +1,90 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Webhook Listener",
+      "type": "shell",
+      "command": "node",
+      "args": ["c:\\Agentic\\mcp-servers\\webhook-listener\\dist\\server.js"],
+      "options": {
+        "cwd": "${workspaceFolder}/mcp-servers/webhook-listener",
+        "env": {}
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "DeliveryIQ Webhook Listener started",
+          "endsPattern": "Waiting for Jira webhooks"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "deliveryiq"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "Start LocalTunnel",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "C:\\Users\\HP\\AppData\\Roaming\\npm\\lt.cmd",
+        "--port",
+        "3000",
+        "--subdomain",
+        "deliveryiq-webhook"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "your url is",
+          "endsPattern": "your url is"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "deliveryiq"
+      }
+    },
+    {
+      "label": "🚀 Start DeliveryIQ (Server + Tunnel)",
+      "dependsOn": ["Start Webhook Listener", "Start LocalTunnel"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Build Webhook Listener",
+      "type": "shell",
+      "command": "node_modules\\.bin\\tsc",
+      "args": ["-p", "tsconfig.json"],
+      "options": {
+        "cwd": "${workspaceFolder}/mcp-servers/webhook-listener"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    }
+  ]
+}
