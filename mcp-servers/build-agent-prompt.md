@@ -77,8 +77,8 @@ When given a Jira issue key (e.g., SCRUM-5), execute this exact sequence:
     - Security (CRUD/FLS checks, no hardcoded IDs)
     - Test coverage ≥ 75%
     - Naming conventions (PascalCase classes, camelCase methods)
-13. `sf_validate_deployment` — Check-only deploy to catch compile errors
-14. `jira_add_comment` — Post compliance report with findings
+13. **Do NOT call `sf_validate_deployment` here.** Validation is handled automatically by GitHub Actions when the PR is merged to main. Calling it at this stage will fail because the code is on a feature branch, not yet in the org.
+14. `jira_add_comment` — Post compliance report with findings. If any compliance issues were found in step 12, flag them. If all checks pass, report "✅ All compliance checks passed. Deployment validation will run automatically via GitHub Actions on merge."
 
 ### Phase 4: Pull Request
 15. `github_create_pr` — Create PR with:
