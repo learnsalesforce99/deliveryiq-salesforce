@@ -63,22 +63,29 @@ jobs:
           # For workflow_dispatch: deploy all force-app content
           # For push: deploy only changed files vs previous commit
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "Manual trigger — deploying all force-app directories..."
-            CHANGED=$(find force-app -name '*.xml' | tr '\n' ' ')
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
+            # Manual trigger: only redeploy files changed in the last commit (same as push)
+            echo "Manual trigger — detecting files changed in last commit..."
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | tr '\n' ' ')
+            echo "Changed files: $CHANGED"
 
-            # Roll up to correct deploy level for all files
-            DIRS=$(find force-app -name '*.xml' | while read FILE; do
-              if echo "$FILE" | grep -qE 'force-app/main/default/objects/[^/]+/(fields|validationRules|recordTypes|listViews|compactLayouts|fieldSets|webLinks|sharingReasons|businessProcesses)/'; then
-                echo "$FILE" | sed -E 's|(force-app/main/default/objects/[^/]+)/.*|\1|'
-              else
-                dirname "$FILE"
-              fi
-            done | sort -u | tr '\n' ',')
-            DIRS="${DIRS%,}"
-            echo "Deploy dirs: $DIRS"
-            echo "deploy_dirs=$DIRS" >> $GITHUB_OUTPUT
+            if [ -z "$(echo $CHANGED | tr -d ' ')" ]; then
+              echo "No Salesforce files changed in last commit. Nothing to deploy."
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+            else
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+              echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
+
+              DIRS=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | while read FILE; do
+                if echo "$FILE" | grep -qE 'force-app/main/default/objects/[^/]+/(fields|validationRules|recordTypes|listViews|compactLayouts|fieldSets|webLinks|sharingReasons|businessProcesses)/'; then
+                  echo "$FILE" | sed -E 's|(force-app/main/default/objects/[^/]+)/.*|\1|'
+                else
+                  dirname "$FILE"
+                fi
+              done | sort -u | tr '\n' ',')
+              DIRS="${DIRS%,}"
+              echo "Deploy dirs: $DIRS"
+              echo "deploy_dirs=$DIRS" >> $GITHUB_OUTPUT
+            fi
           else
             # Get files changed in this push/merge vs previous commit
             CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | tr '\n' ' ')
