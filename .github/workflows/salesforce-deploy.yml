@@ -71,13 +71,24 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
 
-            # Build unique list of top-level component directories to deploy
-            # e.g. force-app/main/default/objects/Customer__c/fields/My_Hobby__c.field-meta.xml
-            #   -> force-app/main/default/objects/Customer__c
-            DIRS=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' \
-              | xargs -I{} dirname {} \
-              | sort -u \
-              | tr '\n' ',')
+            # Build unique list of deployable component directories.
+            # Strategy: roll up to the correct Salesforce metadata container level:
+            #   - Objects (fields, validationRules, etc.) → deploy the whole object dir
+            #     e.g. force-app/main/default/objects/Customer__c/fields/X.field-meta.xml
+            #          → force-app/main/default/objects/Customer__c
+            #   - Top-level types (classes, triggers, lwc, etc.) → deploy the type dir
+            #     e.g. force-app/main/default/classes/MyClass.cls
+            #          → force-app/main/default/classes
+            DIRS=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | while read FILE; do
+              # Check if file is inside an object subdirectory (fields, validationRules, recordTypes, etc.)
+              if echo "$FILE" | grep -qE 'force-app/main/default/objects/[^/]+/(fields|validationRules|recordTypes|listViews|compactLayouts|fieldSets|webLinks|sharingReasons|businessProcesses)/'; then
+                # Roll up to the object level (e.g. force-app/main/default/objects/Customer__c)
+                echo "$FILE" | sed -E 's|(force-app/main/default/objects/[^/]+)/.*|\1|'
+              else
+                # Use the immediate parent directory for other types
+                dirname "$FILE"
+              fi
+            done | sort -u | tr '\n' ',')
             # Remove trailing comma
             DIRS="${DIRS%,}"
             echo "Deploy dirs: $DIRS"
@@ -102,10 +113,11 @@ jobs:
               --wait 30 \
               --json | tee deploy-result-validate.json
 
-            STATUS=$(cat deploy-result-validate.json | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).result?.status||'unknown')")
+            STATUS=$(node -e "try{const d=require('fs').readFileSync('deploy-result-validate.json','utf8');console.log(JSON.parse(d).result?.status||'unknown')}catch(e){console.log('unknown')}")
             echo "Validation Status for $DIR: $STATUS"
             if [ "$STATUS" != "Succeeded" ]; then
               echo "❌ Validation failed for $DIR"
+              cat deploy-result-validate.json
               exit 1
             fi
             echo "✅ Validation passed for $DIR"
@@ -133,7 +145,7 @@ jobs:
                 --wait 30 \
                 --json | tee deploy-result.json
 
-              STATUS=$(cat deploy-result.json | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).result?.status||'unknown')")
+              STATUS=$(node -e "try{const d=require('fs').readFileSync('deploy-result.json','utf8');console.log(JSON.parse(d).result?.status||'unknown')}catch(e){console.log('unknown')}")
               echo "Deploy Status for $DIR: $STATUS"
 
               if [ "$STATUS" != "Succeeded" ]; then
@@ -178,13 +190,5 @@ jobs:
           echo "Changed files: ${{ steps.changed_files.outputs.changed_files }}"
 
           if [ -f deploy-result.json ]; then
-            node -e "
-              const r = JSON.parse(require('fs').readFileSync('deploy-result.json','utf8'));
-              const res = r.result || {};
-              console.log('Status:', res.status);
-              console.log('Components Deployed:', res.numberComponentsDeployed || 0);
-              console.log('Component Errors:', res.numberComponentErrors || 0);
-              console.log('Tests Run:', res.numberTestsCompleted || 0);
-              console.log('Test Errors:', res.numberTestErrors || 0);
-            "
+            node -e "try{const r=JSON.parse(require('fs').readFileSync('deploy-result.json','utf8'));const res=r.result||{};console.log('Status:',res.status||'unknown');console.log('Components Deployed:',res.numberComponentsDeployed||0);console.log('Component Errors:',res.numberComponentErrors||0);console.log('Tests Run:',res.numberTestsCompleted||0);console.log('Test Errors:',res.numberTestErrors||0)}catch(e){console.log('Could not parse deploy result')}"
           fi
