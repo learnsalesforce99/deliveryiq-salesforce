@@ -60,39 +60,56 @@ jobs:
       - name: Detect changed Salesforce files
         id: changed_files
         run: |
-          # Get files changed in this push/merge vs previous commit
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | tr '\n' ' ')
-          echo "Changed files: $CHANGED"
-
-          if [ -z "$CHANGED" ]; then
-            echo "No Salesforce files changed. Skipping deploy."
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          else
+          # For workflow_dispatch: deploy all force-app content
+          # For push: deploy only changed files vs previous commit
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger — deploying all force-app directories..."
+            CHANGED=$(find force-app -name '*.xml' | tr '\n' ' ')
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
 
-            # Build unique list of deployable component directories.
-            # Strategy: roll up to the correct Salesforce metadata container level:
-            #   - Objects (fields, validationRules, etc.) → deploy the whole object dir
-            #     e.g. force-app/main/default/objects/Customer__c/fields/X.field-meta.xml
-            #          → force-app/main/default/objects/Customer__c
-            #   - Top-level types (classes, triggers, lwc, etc.) → deploy the type dir
-            #     e.g. force-app/main/default/classes/MyClass.cls
-            #          → force-app/main/default/classes
-            DIRS=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | while read FILE; do
-              # Check if file is inside an object subdirectory (fields, validationRules, recordTypes, etc.)
+            # Roll up to correct deploy level for all files
+            DIRS=$(find force-app -name '*.xml' | while read FILE; do
               if echo "$FILE" | grep -qE 'force-app/main/default/objects/[^/]+/(fields|validationRules|recordTypes|listViews|compactLayouts|fieldSets|webLinks|sharingReasons|businessProcesses)/'; then
-                # Roll up to the object level (e.g. force-app/main/default/objects/Customer__c)
                 echo "$FILE" | sed -E 's|(force-app/main/default/objects/[^/]+)/.*|\1|'
               else
-                # Use the immediate parent directory for other types
                 dirname "$FILE"
               fi
             done | sort -u | tr '\n' ',')
-            # Remove trailing comma
             DIRS="${DIRS%,}"
             echo "Deploy dirs: $DIRS"
             echo "deploy_dirs=$DIRS" >> $GITHUB_OUTPUT
+          else
+            # Get files changed in this push/merge vs previous commit
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | tr '\n' ' ')
+            echo "Changed files: $CHANGED"
+
+            if [ -z "$CHANGED" ]; then
+              echo "No Salesforce files changed. Skipping deploy."
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+            else
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+              echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
+
+              # Build unique list of deployable component directories.
+              # Strategy: roll up to the correct Salesforce metadata container level:
+              #   - Objects (fields, validationRules, etc.) → deploy the whole object dir
+              #     e.g. force-app/main/default/objects/Customer__c/fields/X.field-meta.xml
+              #          → force-app/main/default/objects/Customer__c
+              #   - Top-level types (classes, triggers, lwc, etc.) → deploy the type dir
+              #     e.g. force-app/main/default/classes/MyClass.cls
+              #          → force-app/main/default/classes
+              DIRS=$(git diff --name-only HEAD~1 HEAD -- 'force-app/**' | while read FILE; do
+                if echo "$FILE" | grep -qE 'force-app/main/default/objects/[^/]+/(fields|validationRules|recordTypes|listViews|compactLayouts|fieldSets|webLinks|sharingReasons|businessProcesses)/'; then
+                  echo "$FILE" | sed -E 's|(force-app/main/default/objects/[^/]+)/.*|\1|'
+                else
+                  dirname "$FILE"
+                fi
+              done | sort -u | tr '\n' ',')
+              DIRS="${DIRS%,}"
+              echo "Deploy dirs: $DIRS"
+              echo "deploy_dirs=$DIRS" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Validate Deployment (Check Only)
@@ -110,6 +127,7 @@ jobs:
               --target-org target-org \
               --test-level ${{ github.event.inputs.test_level || 'NoTestRun' }} \
               --dry-run \
+              --ignore-conflicts \
               --wait 30 \
               --json | tee deploy-result-validate.json
 
@@ -142,6 +160,7 @@ jobs:
                 --source-dir "$DIR" \
                 --target-org target-org \
                 --test-level ${{ github.event.inputs.test_level || 'NoTestRun' }} \
+                --ignore-conflicts \
                 --wait 30 \
                 --json | tee deploy-result.json
 
