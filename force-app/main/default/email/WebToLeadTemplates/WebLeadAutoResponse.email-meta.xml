@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <available>true</available>
+    <encodingKey>UTF-8</encodingKey>
+    <name>WebLeadAutoResponse</name>
+    <style>none</style>
+    <subject>Thank You for Your Interest — EXL Service</subject>
+    <textOnly>Thank you {!Lead.FirstName} from {!Lead.Company} for reaching out to us. We have received your enquiry about {!Lead.Product_Interest__c} and will be in touch within 1 business day. Visit us at https://www.exlservice.com</textOnly>
+    <type>html</type>
+    <description>Auto-response email sent to leads submitted via the Web-to-Lead form. References SCRUM-21.</description>
+</EmailTemplate>
