@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Employed__c</fullName>
+    <label>Employed</label>
+    <type>Checkbox</type>
+    <defaultValue>false</defaultValue>
+    <description>Indicates whether the customer is employed. Created via SCRUM-23.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Check this box if the customer is currently employed.</inlineHelpText>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+</CustomField>
